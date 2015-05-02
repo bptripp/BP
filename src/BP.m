@@ -1,4 +1,10 @@
 classdef BP < handle 
+    %TODO
+    % normalize everything to between 0 and 1 (for neurons and log)
+    % try product in place of min
+    % test against realistic stereo input with larger (downsampled) images
+    %   (fewer levels)
+    
     
     properties (Access = public)
         data = [];
@@ -13,20 +19,24 @@ classdef BP < handle
             assert(isa(data, 'int32'))
             assert(isa(levels, 'int32'))
             
-            bp.data = data;
-            bp.levels = levels;
-            bp.messages = zeros(size(data,1), size(data,2), 4, length(levels), 'int32');
+            bp.data = single(data);
+            bp.levels = single(levels);
+            bp.messages = zeros(size(data,1), size(data,2), 4, length(levels), 'single');
             
-            bp.dataCost = zeros(size(data,1), size(data,2), length(levels), 'int32');
+            maxDataCost = 10;
+            
+            bp.dataCost = zeros(size(data,1), size(data,2), length(levels), 'single');
             for i = 1:size(data,1)
                 for j = 1:size(data,2)
-                    bp.dataCost(i,j,:) = min(10, abs(bp.levels - bp.data(i,j))); 
+                    bp.dataCost(i,j,:) = min(maxDataCost, abs(bp.levels - bp.data(i,j))); 
                 end
             end
+            
+%             bp.dataCost = bp.dataCost / maxDataCost; % normalize to max 1
         end
         
         function iterate(bp)
-            m = zeros(size(bp.messages), 'int32');
+            m = zeros(size(bp.messages), 'single');
             for i = 1:size(bp.data, 1)
                 for j = 1:size(bp.data, 2)
                     for k = 1:4
@@ -44,22 +54,30 @@ classdef BP < handle
             inverseNeighbourList = [2 1 4 3];
             inverseNeighbour = inverseNeighbourList(neighbour);
             
+            maxDiscontinuityCost = 10;
+            
             fromRow = row + rowOffset(neighbour);
             fromCol = col + colOffset(neighbour);
             message = zeros(size(bp.levels));
             if fromRow >= 1 && fromRow <= size(bp.data,1) && fromCol >= 1 && fromCol <= size(bp.data,2)
                 dc = squeeze(bp.dataCost(row, col, :)); 
+                
                 inMessages = squeeze(bp.messages(fromRow, fromCol, setdiff(1:4, inverseNeighbour), :));
-                messageCost = int32(sum(inMessages,1)); 
+                
+                messageCost = sum(inMessages,1); 
                 sourceCost = repmat(dc' + messageCost, length(bp.levels), 1);
-                discontinuityCost = min(10, abs(repmat(bp.levels, length(bp.levels), 1) - repmat(bp.levels', 1, length(bp.levels))));
+                
+%                 sourceCost = sourceCost / 4;
+                
+                discontinuityCost = min(maxDiscontinuityCost, abs(repmat(bp.levels, length(bp.levels), 1) - repmat(bp.levels', 1, length(bp.levels))));
+%                 discontinuityCost = discontinuityCost / maxDiscontinuityCost; % normalize to max 1
+                
                 cost = sourceCost + discontinuityCost;
+%                 cost = sourceCost/2 + discontinuityCost/2;
                 
                 if row == 5 && col == 5 && neighbour == 1
                     figure(2), set(gcf, 'Position', [782   374   560   420])
-                    subplot(1,3,1), mesh(double(sourceCost)), subplot(1,3,2), mesh(double(discontinuityCost)), subplot(1,3,3), mesh(double(cost))
-%                     figure(2), subplot(1,2,1), imagesc(sourceCost), subplot(1,2,2), imagesc(cost)
-%                     pause
+                    subplot(1,3,1), mesh(sourceCost), subplot(1,3,2), mesh(discontinuityCost), subplot(1,3,3), mesh(cost)
                 end
                 
                 message = min(cost, [], 2);
@@ -67,12 +85,8 @@ classdef BP < handle
             end
         end
         
-        function cost = getCost(bp)
-            cost = squeeze(int32(sum(bp.messages,3))) + bp.dataCost; 
-        end
-        
         function result = getMAP(bp)
-            cost = squeeze(int32(sum(bp.messages,3))) + bp.dataCost; 
+            cost = squeeze(sum(bp.messages,3)) + bp.dataCost; 
             [~,ind] = min(cost,[],3);
             result = bp.levels(ind);
         end

@@ -12,6 +12,7 @@ for i = 1:30
     tic, bp.iterate(); toc
     result = getMAP(bp);
     figure(1), set(gcf, 'Position', [217   374   560   420])
-    imagesc(double(result)), pause(.1)
+    mesh(result), pause(.01)
+%     imagesc(result), pause(.01)
 end
 
