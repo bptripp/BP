@@ -1,6 +1,5 @@
 classdef SumProductBP < handle 
     %TODO
-    % try product in place of min
     % test against realistic stereo input with larger (downsampled) images
     %   (fewer levels)
         
@@ -8,7 +7,7 @@ classdef SumProductBP < handle
         data = [];
         levels = [];
         messages = [];
-        dataProb = [];
+        dataLogProb = [];
         dataSigma = [];
         discontinuitySigma = [];
     end
@@ -20,14 +19,16 @@ classdef SumProductBP < handle
             bp.data = single(data);
             bp.levels = single(levels);
             bp.messages = ones(size(data,1), size(data,2), 4, length(levels), 'single') / length(levels);
+            bp.messages = log(bp.messages); 
             bp.dataSigma = dataSigma;
             bp.discontinuitySigma = discontinuitySigma;
             
-            bp.dataProb = zeros(size(data,1), size(data,2), length(levels), 'single');
+            bp.dataLogProb = zeros(size(data,1), size(data,2), length(levels), 'single');
             for i = 1:size(data,1)
                 for j = 1:size(data,2)
-                    bp.dataProb(i,j,:) = gaussian(bp.levels, bp.data(i,j), dataSigma) + .1 / length(levels); 
-                    bp.dataProb(i,j,:) = bp.dataProb(i,j,:) ./ sum(bp.dataProb(i,j,:)); % normalize
+                    g = gaussian(bp.levels, bp.data(i,j), dataSigma) + .1/length(levels);
+                    bp.dataLogProb(i,j,:) = log(g);
+                    bp.dataLogProb(i,j,:) = rescaleLog(bp.dataLogProb(i,j,:));
                 end
             end            
         end
@@ -53,31 +54,32 @@ classdef SumProductBP < handle
             inverseNeighbourList = [2 1 4 3];
             inverseNeighbour = inverseNeighbourList(neighbour);
             
-            message = ones(size(bp.levels)) / nl;
+            message = log(ones(size(bp.levels)) / nl); 
             
             fromRow = row + rowOffset(neighbour);
             fromCol = col + colOffset(neighbour);
             if fromRow >= 1 && fromRow <= size(bp.data,1) && fromCol >= 1 && fromCol <= size(bp.data,2)
-                dataProb = squeeze(bp.dataProb(row, col, :)); 
+                dataLogProb = squeeze(bp.dataLogProb(row, col, :)); 
                 
                 inMessages = squeeze(bp.messages(fromRow, fromCol, setdiff(1:4, inverseNeighbour), :));                
-                messageProb = prod(inMessages,1); 
+                messageLogProb = sum(inMessages,1); 
                 
-                sourceProb = repmat(dataProb' .* messageProb, nl, 1);
+                logSourceProb = repmat(dataLogProb' + messageLogProb, nl, 1);
 
                 discontinuity = repmat(bp.levels, nl, 1) - repmat(bp.levels', 1, nl);
                 discontinuityProb = gaussian(discontinuity, 0, bp.discontinuitySigma) + .1/nl;
                 discontinuityProb = discontinuityProb ./ repmat(sum(discontinuityProb, 2), 1, nl); 
+                logDiscontinuityProb = log(discontinuityProb);
                 
-                prob = sourceProb .* discontinuityProb;
+                logProb = logSourceProb + logDiscontinuityProb;
                 
-                message = sum(prob, 2);
-                message = message / sum(message);
+                message = log(sum(exp(logProb), 2)); 
+                message = rescaleLog(message); 
             end
         end
         
         function result = getMAP(bp)
-            prob = squeeze(prod(bp.messages,3)) .* bp.dataProb; 
+            prob = squeeze(sum(bp.messages,3)) + bp.dataLogProb; 
             [~,ind] = max(prob,[],3);
             result = bp.levels(ind);
         end
@@ -86,5 +88,9 @@ end
 
 function y = gaussian(x, mu, sigma)
     y = 1 / sigma / (2*pi)^.5 * exp(-(x-mu).^2 / 2 / sigma);
+end
+
+function logProb = rescaleLog(logProb)
+    logProb = logProb - max(logProb);
 end
 
