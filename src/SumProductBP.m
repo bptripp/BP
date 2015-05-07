@@ -1,5 +1,6 @@
 classdef SumProductBP < handle 
     %TODO
+    % normalization
     % test against realistic stereo input with larger (downsampled) images
     %   (fewer levels)
         
@@ -30,7 +31,8 @@ classdef SumProductBP < handle
                     bp.dataLogProb(i,j,:) = log(g);
                     bp.dataLogProb(i,j,:) = rescaleLog(bp.dataLogProb(i,j,:));
                 end
-            end            
+            end
+            bp.dataLogProb = addNoiseAndBias(bp.dataLogProb);
         end
         
         function iterate(bp)
@@ -42,7 +44,7 @@ classdef SumProductBP < handle
                     end
                 end
             end
-            bp.messages = m;
+            bp.messages = addNoiseAndBias(m);
         end
         
         function message = getMessage(bp, row, col, neighbour)
@@ -72,6 +74,7 @@ classdef SumProductBP < handle
                 logDiscontinuityProb = log(discontinuityProb);
                 
                 logProb = logSourceProb + logDiscontinuityProb;
+                logProb = addNoiseAndBias(logProb + 8); %have to add something to avoid saturation
                 
                 message = log(sum(exp(logProb), 2)); 
                 message = rescaleLog(message); 
@@ -94,3 +97,7 @@ function logProb = rescaleLog(logProb)
     logProb = logProb - max(logProb);
 end
 
+function x = addNoiseAndBias(x)
+    radius = 5; 
+    x = (2*radius)*tanh(x/(2*radius)) + .05*radius*randn(size(x));
+end

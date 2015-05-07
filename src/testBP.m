@@ -8,7 +8,7 @@ mesh(im);
 
 levels = int32(1:128);
 bp = SumProductBP(im, levels, 10, 5);
-for i = 1:20
+for i = 1:30
     tic, bp.iterate(); toc
     result = getMAP(bp);
     figure(1), set(gcf, 'Position', [217   374   560   420])
