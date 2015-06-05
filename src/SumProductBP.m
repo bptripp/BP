@@ -9,8 +9,11 @@ classdef SumProductBP < handle
         levels = [];
         messages = [];
         dataLogProb = [];
+        h = [];
         dataSigma = [];
         discontinuitySigma = [];
+        dt = .001;
+        tau = .005;
     end
     
     methods (Access = public)
@@ -21,6 +24,7 @@ classdef SumProductBP < handle
             bp.levels = single(levels);
             bp.messages = ones(size(data,1), size(data,2), 4, length(levels), 'single') / length(levels);
             bp.messages = log(bp.messages); 
+            bp.h = bp.messages;
             bp.dataSigma = dataSigma;
             bp.discontinuitySigma = discontinuitySigma;
             
@@ -44,6 +48,7 @@ classdef SumProductBP < handle
                     end
                 end
             end
+            m = bp.dt/bp.tau * m + (1-bp.dt/bp.tau) * bp.messages; % continuous-time model
             bp.messages = addNoiseAndBias(m);
         end
         
@@ -66,7 +71,10 @@ classdef SumProductBP < handle
                 inMessages = squeeze(bp.messages(fromRow, fromCol, setdiff(1:4, inverseNeighbour), :));                
                 messageLogProb = sum(inMessages,1); 
                 
-                logSourceProb = repmat(dataLogProb' + messageLogProb, nl, 1);
+                lsp = dataLogProb' + messageLogProb;
+                bp.h(row,col,neighbour,:) = bp.dt/bp.tau * lsp + (1-bp.dt/bp.tau) * squeeze(bp.h(row,col,neighbour,:))';
+                logSourceProb = repmat(squeeze(bp.h(row,col,neighbour,:))', nl, 1);
+                
 
                 discontinuity = repmat(bp.levels, nl, 1) - repmat(bp.levels', 1, nl);
                 discontinuityProb = gaussian(discontinuity, 0, bp.discontinuitySigma) + .1/nl;
@@ -99,5 +107,5 @@ end
 
 function x = addNoiseAndBias(x)
     radius = 5; 
-    x = (2*radius)*tanh(x/(2*radius)) + .05*radius*randn(size(x));
+    x = (2*radius)*tanh(x/(2*radius)) + .2*radius*randn(size(x));
 end

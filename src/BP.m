@@ -1,6 +1,5 @@
 classdef BP < handle 
     %TODO
-    % normalize everything to between 0 and 1 (for neurons and log)
     % try product in place of min
     % test against realistic stereo input with larger (downsampled) images
     %   (fewer levels)
@@ -32,7 +31,7 @@ classdef BP < handle
                 end
             end
             
-%             bp.dataCost = bp.dataCost / maxDataCost; % normalize to max 1
+            bp.dataCost = bp.dataCost / maxDataCost; % normalize to max 1
         end
         
         function iterate(bp)
@@ -70,17 +69,38 @@ classdef BP < handle
 %                 sourceCost = sourceCost / 4;
                 
                 discontinuityCost = min(maxDiscontinuityCost, abs(repmat(bp.levels, length(bp.levels), 1) - repmat(bp.levels', 1, length(bp.levels))));
-%                 discontinuityCost = discontinuityCost / maxDiscontinuityCost; % normalize to max 1
+                discontinuityCost = discontinuityCost / maxDiscontinuityCost; % normalize to max 1
                 
-                cost = sourceCost + discontinuityCost;
-%                 cost = sourceCost/2 + discontinuityCost/2;
+                discontinuityCost = min(1, round(2*discontinuityCost)); % give it a flat bottom
                 
-                if row == 5 && col == 5 && neighbour == 1
-                    figure(2), set(gcf, 'Position', [782   374   560   420])
-                    subplot(1,3,1), mesh(sourceCost), subplot(1,3,2), mesh(discontinuityCost), subplot(1,3,3), mesh(cost)
-                end
+                cost = sourceCost + discontinuityCost; % this has max 5 (3 messages, source data cost, discontinuity cost all have max 1)
+                
+%                 if row == 5 && col == 5 && neighbour == 1
+%                     figure(2), set(gcf, 'Position', [782   374   560   420])
+%                     subplot(1,3,1), mesh(sourceCost), subplot(1,3,2), mesh(discontinuityCost), subplot(1,3,3), mesh(cost)
+%                 end
+                
+%                 relCost = cost / 5;
+%                 relMessage = min(relCost, [], 2); 
+% %                 relMessageB = prod(relCost, 2); 
+% %                 figure(2), subplot(1,3,1), plot(relMessage), subplot(1,3,2), plot(relMessageB, 'r'), subplot(1,3,3), mesh(relCost), pause                
+%                 message = relMessage * 5;
                 
                 message = min(cost, [], 2);
+                for i = 1:size(cost,1)
+%                     message(i) = min(cost(i,:));
+
+                    range = bp.levels(i)+(-10:10);
+                    range = max(1,min(length(bp.levels), range));
+                    message(i) = min(cost(i,range));
+                    message(i) = min(1, message(i)); %assume zero cost somewhere outside neighbourhood
+                end
+                m2 = min(cost, [], 2);
+%                 if norm(message - m2) > .001
+%                     plot(1:128, message, 'r', 1:128, m2, 'k.'), pause
+%                 end
+                plot(1:128, message, 'r', 1:128, m2, 'k.'), pause
+                
                 message = message - sum(message) / length(message); % blows up otherwise
             end
         end
