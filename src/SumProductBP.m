@@ -77,7 +77,7 @@ classdef SumProductBP < handle
                 
 
                 discontinuity = repmat(bp.levels, nl, 1) - repmat(bp.levels', 1, nl);
-                discontinuityProb = gaussian(discontinuity, 0, bp.discontinuitySigma) + .1/nl;
+                discontinuityProb = gaussian(discontinuity, 0, bp.discontinuitySigma) + .05/nl;
                 discontinuityProb = discontinuityProb ./ repmat(sum(discontinuityProb, 2), 1, nl); 
                 logDiscontinuityProb = log(discontinuityProb);
                 
@@ -106,6 +106,8 @@ function logProb = rescaleLog(logProb)
 end
 
 function x = addNoiseAndBias(x)
+%     radius = 5; 
+%     x = (2*radius)*tanh(x/(2*radius)) + .2*radius*randn(size(x));
     radius = 5; 
-    x = (2*radius)*tanh(x/(2*radius)) + .2*radius*randn(size(x));
+    x = (2*radius)*tanh(x/(2*radius)) + .1*radius*randn(size(x));
 end

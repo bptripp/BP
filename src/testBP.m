@@ -1,14 +1,16 @@
 % testing modifications of BP for neurons
 
 ideal = zeros(10,10,'int32');
-ideal(:,1:5) = 50;
-ideal(:,6:end) = 100;
-im = ideal + int32(10*randn(size(ideal)));
+ideal(:,1:5) = 2;
+ideal(:,6:end) = 8;
+im = ideal + int32(1*randn(size(ideal)));
 mesh(im);
 
-levels = int32(1:128);
-bp = SumProductBP(im, levels, 10, 5);
-steps = 300;
+levels = int32(1:10);
+
+% bp = SumProductBP(im, levels, 10, 5);
+bp = SumProductBP(im, levels, 1, .2);
+steps = 100;
 results = zeros(size(im,1),size(im,2),steps);
 for i = 1:steps
     tic, bp.iterate(); toc
@@ -20,7 +22,7 @@ for i = 1:steps
 end
 
 figure
-subplot(2,2,1), mesh(ideal), title('ideal'), set(gca, 'ZLim', [20 140])
-subplot(2,2,2), mesh(im), title('input'), set(gca, 'ZLim', [20 140])
-subplot(2,2,3), mesh(mean(results(:,:,1:5), 3)), title('early'), set(gca, 'ZLim', [20 140])
-subplot(2,2,4), mesh(mean(results(:,:,end-4:end), 3)), title('late'), set(gca, 'ZLim', [20 140])
+subplot(2,2,1), mesh(ideal), title('ideal'), set(gca, 'ZLim', [-2 12])
+subplot(2,2,2), mesh(im), title('input'), set(gca, 'ZLim', [-2 12])
+subplot(2,2,3), mesh(mean(results(:,:,1:5), 3)), title('early'), set(gca, 'ZLim', [-2 12])
+subplot(2,2,4), mesh(mean(results(:,:,end-4:end), 3)), title('late'), set(gca, 'ZLim', [-2 12])
