@@ -12,9 +12,9 @@ classdef NeuralBP < handle
         dataSigma = [];
         discontinuitySigma = [];
         dt = .0005;
-        tau = .005;
+        tau = .01;
               
-        nPerState = 100;
+        nPerState =    200;
         flatInd = []; % indices of state variables 
         hSpikeGen = [];
         hEncoders = [];
@@ -47,7 +47,7 @@ classdef NeuralBP < handle
                     bp.dataLogProb(i,j,:) = rescaleLog(bp.dataLogProb(i,j,:));
                 end
             end
-            bp.dataLogProb = addNoiseAndBias(bp.dataLogProb);
+%             bp.dataLogProb = addNoiseAndBias(bp.dataLogProb);
             
             bp.flatInd = reshape(1:numel(bp.h), size(bp.h));
             
@@ -77,12 +77,25 @@ classdef NeuralBP < handle
                     end
                 end
             end            
-            bp.messages = bp.dt/bp.tau * m + (1-bp.dt/bp.tau) * bp.messages; % input to message neurons
+%             bp.messages = bp.dt/bp.tau * m + (1-bp.dt/bp.tau) * bp.messages; % input to message neurons
+            messageInputs = bp.dt/bp.tau * m + (1-bp.dt/bp.tau) * bp.messages; % input to message neurons
             
-            drive = bp.messageEncoders .* reshape(ones(bp.nPerState,1) * reshape(bp.messages, 1, []), 1, []);
-            spikes = bp.messageSpikeGen.run(drive', startTime, startTime+bp.dt, 1);
+            drive = bp.messageEncoders .* reshape(ones(bp.nPerState,1) * reshape(messageInputs, 1, []), 1, []);
+            spikeMode = 0;
+            spikes = bp.messageSpikeGen.run(drive', startTime, startTime+bp.dt, spikeMode); 
             decoded = sum(reshape(bp.messageDecoders .* spikes', bp.nPerState, []), 1);
-            bp.probedMessages =  bp.dt/bp.tau * reshape(decoded, size(bp.messages)) + (1-bp.dt/bp.tau) * bp.probedMessages;
+%             bp.messages =  reshape(decoded, size(bp.messages));
+%             bp.probedMessages =  bp.dt/bp.tau * bp.messages + (1-bp.dt/bp.tau) * bp.probedMessages;
+
+            % let's try with a double filter
+            messages =  reshape(decoded, size(bp.messages));
+%             bp.probedMessages =  bp.dt/bp.tau * messages + (1-bp.dt/bp.tau) * bp.probedMessages;
+            tauProbe = .002;
+            bp.probedMessages =  bp.dt/tauProbe * messages + (1-bp.dt/tauProbe) * bp.probedMessages;
+
+            bp.messages = bp.probedMessages;
+%             bp.messages = addNoiseAndBias(messageInputs);
+%             bp.messages = messageInputs;
         end
         
         function message = getMessage(bp, row, col, neighbour)
@@ -110,7 +123,7 @@ classdef NeuralBP < handle
                 
 
                 discontinuity = repmat(bp.levels, nl, 1) - repmat(bp.levels', 1, nl);
-                discontinuityProb = gaussian(discontinuity, 0, bp.discontinuitySigma) + .05/nl;
+                discontinuityProb = gaussian(discontinuity, 0, bp.discontinuitySigma) + .1/nl;
                 discontinuityProb = discontinuityProb ./ repmat(sum(discontinuityProb, 2), 1, nl); 
                 logDiscontinuityProb = log(discontinuityProb);
                 
@@ -160,8 +173,7 @@ function result = findDecoders(spikeGenerator, encoders, radius, nPerState, f)
         ind = (i-1)*nPerState + (1:nPerState);
         r = rates(ind,:);
         gamma = r * r';
-        gamma = gamma + (relNoise*max(r(:)))^2*size(gamma,1) * eye(size(gamma,1));
-%         invgamma = pinv(gamma);
+        gamma = gamma + (relNoise*max(r(:)))^2*size(gamma,1) * eye(size(gamma,1)); %whoops -- scale by size(r, 1)? 
         V = r * ideal';
         d = (gamma\V)';
         result(ind) = d;
@@ -179,5 +191,5 @@ end
 
 function x = addNoiseAndBias(x)
     radius = 5; 
-    x = (2*radius)*tanh(x/(2*radius)) + .1*radius*randn(size(x));
+    x = (2*radius)*tanh(x/(2*radius)) + .05*radius*randn(size(x));
 end

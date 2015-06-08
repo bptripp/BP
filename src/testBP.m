@@ -11,18 +11,19 @@ mesh(im);
 levels = int32(1:10);
 
 bp = NeuralBP(im, levels, 1, .2);
-steps = 50;
+steps = 400;
 time = (1:steps)*bp.dt;
 results = zeros(size(im,1),size(im,2),steps);
 figure(1), set(gcf, 'Position', [229 373 1012 420])
 for i = 1:steps
     time(i)-bp.dt
     tic, bp.iterate(time(i)-bp.dt); toc
-    result = getMAP(bp);
-    subplot(1,2,1), mesh(result)
+%     result = getMAP(bp);
+%     mesh(result)
+    subplot(1,2,1), mesh(getMAP(bp))
     subplot(1,2,2), mesh(getProbeMAP(bp))
     pause(.01)
-    results(:,:,i) = result;
+    results(:,:,i) = getProbeMAP(bp);
 %     imagesc(result), pause(.01)
 end
 
